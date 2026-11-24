@@ -833,6 +833,15 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 		dev_err(pmic_arb->dev,
 		"periph_interrupt(apid:0x%x sid:0x%x pid:0x%x) unknown peripheral\n",
 			apid, sid, pid);
+		{
+			u32 ver = readl_relaxed(pmic_arb->base + PMIC_ARB_VERSION);
+			u32 chn = readl_relaxed(pmic_arb->base + PMIC_ARB_REG_CHNL(apid));
+			u32 en  = readl_relaxed(pmic_arb->intr + pmic_arb->ver->acc_enable(apid));
+			u32 st  = readl_relaxed(pmic_arb->intr + pmic_arb->ver->irq_status(apid));
+			dev_err(pmic_arb->dev,
+				"ORPHAN apid 0x%x: arb_ver 0x%x chnl_reg 0x%x sid %u pid 0x%x acc_en 0x%x irq_status 0x%x\n",
+				apid, ver, chn, (chn >> 16) & 0xF, (chn >> 8) & 0xFF, en, st);
+		}
 		/* return IRQ_NONE; */
 	}
 
