@@ -1,0 +1,51 @@
+name: Build kernel (no release)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ spmi-debug ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
+            device-tree-compiler python3
+
+      - name: Get GCC 4.9 toolchain
+        run: |
+          git clone --depth=1 -b lineage-19.1 \
+            https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 \
+            "$HOME/gcc49"
+
+      - name: Build
+        env:
+          ARCH: arm64
+          CROSS_COMPILE: ${{ github.workspace }}/../gcc49/bin/aarch64-linux-android-
+          HOSTCFLAGS: -fcommon
+        run: |
+          export CROSS_COMPILE="$HOME/gcc49/bin/aarch64-linux-android-"
+          make O=out mmo_defconfig
+          make O=out -j$(nproc) 2>&1 | tee build.log
+
+      - name: Collect output
+        if: always()
+        run: |
+          mkdir -p result
+          cp build.log result/ || true
+          cp out/.config result/config || true
+          cp out/arch/arm64/boot/Image* result/ 2>/dev/null || true
+          find out/arch/arm64/boot -name '*.dtb' -exec cp {} result/ \; || true
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build
+          path: result/
+          retention-days: 14
